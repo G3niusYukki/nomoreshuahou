@@ -1,0 +1,33 @@
+scheduler:
+  timezone: Asia/Shanghai
+  pre_warm_seconds: 30
+
+platforms:
+  aliyun:
+    enabled: true
+    purchase_time: '09:30:00'
+    url: https://common-buy.aliyun.com/coding-plan
+    max_retries: 5
+    retry_delay_seconds: 1.0
+  glm:
+    enabled: true
+    purchase_time: '10:00:00'
+    url: https://www.bigmodel.cn/glm-coding
+    max_retries: 5
+    retry_delay_seconds: 1.0
+    priority:
+    - Pro
+    - Lite
+    - Max
+
+browser:
+  headless: false
+  slow_mo: 50
+  viewport_width: 1920
+  viewport_height: 1080
+
+notification:
+  sound_enabled: true
+  sound_file: null
+  desktop_enabled: true
+  log_file: logs/snap_buy.log
