@@ -79,51 +79,51 @@ async def _run_scheduler(config: AppConfig, run_now: bool = False):
 
         if config.platforms.aliyun.enabled:
             aliyun_config = config.platforms.aliyun
-            buyer = AliyunBuyer(
+            aliyun_buyer = AliyunBuyer(
                 config=aliyun_config,
                 browser_manager=browser_manager,
                 notifier=notifier,
                 retry_config=RetryConfig(max_retries=aliyun_config.max_retries),
             )
-            buyers["aliyun"] = (buyer, aliyun_config)
+            buyers["aliyun"] = (aliyun_buyer, aliyun_config)
 
             async def aliyun_job(pre_warm=False, context=None):
                 if pre_warm:
-                    return await buyer.pre_warm()
-                return await buyer.run(context=context)
+                    return await aliyun_buyer.pre_warm()
+                return await aliyun_buyer.run(context=context)
 
             scheduler.schedule_platform("aliyun", aliyun_config.purchase_time, aliyun_job)
 
         if config.platforms.glm.enabled:
             glm_config = config.platforms.glm
-            buyer = GLMBuyer(
+            glm_buyer = GLMBuyer(
                 config=glm_config,
                 browser_manager=browser_manager,
                 notifier=notifier,
                 retry_config=RetryConfig(max_retries=glm_config.max_retries),
             )
-            buyers["glm"] = (buyer, glm_config)
+            buyers["glm"] = (glm_buyer, glm_config)
 
             async def glm_job(pre_warm=False, context=None):
                 if pre_warm:
-                    return await buyer.pre_warm()
-                return await buyer.run(context=context)
+                    return await glm_buyer.pre_warm()
+                return await glm_buyer.run(context=context)
 
             scheduler.schedule_platform("glm", glm_config.purchase_time, glm_job)
 
         if run_now:
             # --now mode: run all enabled platforms immediately
-            for platform_name, (buyer, plat_config) in buyers.items():
+            for platform_name, (b, plat_config) in buyers.items():
                 console.print(f"[cyan]Running {platform_name} purchase immediately...[/cyan]")
 
-                async def make_job(b):
+                async def make_job(buyer=b):
                     async def job(pre_warm=False, context=None):
                         if pre_warm:
-                            return await b.pre_warm()
-                        return await b.run(context=context)
+                            return await buyer.pre_warm()
+                        return await buyer.run(context=context)
                     return job
 
-                await scheduler.run_immediate(await make_job(buyer))
+                await scheduler.run_immediate(await make_job())
         else:
             scheduler.start()
             console.print("[green]Scheduler running. Press Ctrl+C to stop.[/green]")

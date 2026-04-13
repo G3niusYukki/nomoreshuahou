@@ -42,7 +42,11 @@ class BrowserManager:
         }
         if self.config.proxy:
             launch_kwargs["proxy"] = {"server": self.config.proxy}
-            logger.info(f"Using proxy: {self.config.proxy}")
+            # Log proxy host without credentials
+            from urllib.parse import urlparse
+            parsed = urlparse(self.config.proxy)
+            safe = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}" if parsed.hostname else self.config.proxy
+            logger.info(f"Using proxy: {safe}")
 
         self._browser = await self._playwright.chromium.launch(**launch_kwargs)
         return self._browser

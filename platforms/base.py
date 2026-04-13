@@ -130,6 +130,7 @@ class BaseBuyer(ABC):
         page: Page,
         timeout: int = 120,
         success_indicators: list[str] | None = None,
+        tier: str = "",
     ) -> PurchaseResult:
         """Wait for user to complete manual payment, polling for success."""
         logger.info(f"[{self.platform_name}] Order created! Waiting for manual payment ({timeout}s)...")
@@ -152,6 +153,7 @@ class BaseBuyer(ABC):
                         return PurchaseResult(
                             status=PurchaseStatus.SUCCESS,
                             platform=self.platform_name,
+                            tier=tier,
                             message="Payment completed successfully",
                         )
 
@@ -162,6 +164,7 @@ class BaseBuyer(ABC):
                 return PurchaseResult(
                     status=PurchaseStatus.SUCCESS,
                     platform=self.platform_name,
+                    tier=tier,
                     message=f"Payment success (URL): {page.url}",
                 )
 
@@ -171,18 +174,14 @@ class BaseBuyer(ABC):
 
             await asyncio.sleep(poll_interval)
 
-        # Timeout
+        # Timeout — terminal, do not retry (avoid creating duplicate orders)
         logger.warning(f"[{self.platform_name}] Payment wait timed out after {timeout}s")
         self.notifier.notify(
             title="Snap Buy - 支付超时",
             message=f"{self.platform_name}: 支付等待超时，请手动检查订单状态",
             sound=True,
         )
-        return PurchaseResult(
-            status=PurchaseStatus.ERROR,
-            platform=self.platform_name,
-            message=f"Payment wait timed out after {timeout}s",
-        )
+        raise RuntimeError(f"Payment wait timed out after {timeout}s — sold out")
 
     async def _take_screenshot(self, name: str) -> None:
         if self._page:

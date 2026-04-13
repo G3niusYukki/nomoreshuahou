@@ -45,10 +45,13 @@ class PurchaseScheduler:
         h, m, s = self._parse_purchase_time(time_str)
         warm_sec = pre_warm_seconds or self.config.scheduler.pre_warm_seconds
 
+        # Compute warm time: schedule the job early so pre_warm runs in advance
+        warm_dt = datetime.now(self.tz).replace(hour=h, minute=m, second=s, microsecond=0) - timedelta(seconds=warm_sec)
+        warm_h, warm_m, warm_s = warm_dt.hour, warm_dt.minute, warm_dt.second
+
         async def wrapped():
             target = datetime.now(self.tz).replace(hour=h, minute=m, second=s, microsecond=0)
-            warm_target = target - timedelta(seconds=warm_sec)
-            logger.info(f"[{platform_name}] Pre-warming at {warm_target.strftime('%H:%M:%S')}")
+            logger.info(f"[{platform_name}] Pre-warming (scheduled early by {warm_sec}s)")
 
             try:
                 # Pre-warm: launch browser and navigate
@@ -66,7 +69,7 @@ class PurchaseScheduler:
                 if self._notifier:
                     self._notifier.failure(platform_name, f"Scheduler error: {e}")
 
-        trigger = CronTrigger(hour=h, minute=m, second=s, timezone=self.tz)
+        trigger = CronTrigger(hour=warm_h, minute=warm_m, second=warm_s, timezone=self.tz)
         job_id = f"{platform_name}_purchase"
         self._scheduler.add_job(wrapped, trigger, id=job_id, name=f"{platform_name} purchase")
         logger.info(f"Scheduled {platform_name} at {time_str} ({self.config.scheduler.timezone})")

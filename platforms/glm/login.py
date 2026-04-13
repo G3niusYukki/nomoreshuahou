@@ -1,7 +1,5 @@
 import logging
 
-from playwright.async_api import BrowserContext
-
 from core.browser import BrowserManager
 from platforms.base_login import BaseLoginHandler
 
