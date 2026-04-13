@@ -5,7 +5,7 @@ platforms:
   aliyun:
     enabled: true
     purchase_time: "09:30:00"
-    url: https://common-buy.aliyun.com/coding-plan
+    url: https://www.aliyun.com/benefit/scene/codingplan
     max_retries: 5
     retry_delay_seconds: 1.0
     payment_timeout: 120

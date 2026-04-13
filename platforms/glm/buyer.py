@@ -71,11 +71,8 @@ class GLMBuyer(BaseBuyer):
         await page.wait_for_load_state("networkidle", timeout=15000)
         if "login" in page.url.lower():
             return False
-        # Check for avatar element indicating authenticated state
-        login_indicator = await page.query_selector(
-            ".user-avatar, .login-avatar, [class*=avatar], [class*=user]"
-        )
-        return login_indicator is not None
+        # If page didn't redirect to login, consider authenticated
+        return True
 
     async def is_available(self, page: Page) -> bool:
         for selector in self.SOLD_OUT_SELECTORS:

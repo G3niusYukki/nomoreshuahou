@@ -91,5 +91,6 @@ class PurchaseScheduler:
         self._scheduler.start()
 
     def stop(self) -> None:
+        if self._scheduler.running:
+            self._scheduler.shutdown(wait=False)
         logger.info("Scheduler stopped")
-        self._scheduler.shutdown(wait=False)

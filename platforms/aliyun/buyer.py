@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 class AliyunBuyer(BaseBuyer):
     platform_name = "aliyun"
-    purchase_url = "https://common-buy.aliyun.com/coding-plan"
+    purchase_url = "https://www.aliyun.com/benefit/scene/codingplan"
 
     # Selectors - may need updating if the page changes
     SELECTORS = {
         "purchase_button": [
+            'button:has-text("立即订阅")',
+            'a:has-text("立即订阅")',
             'button:has-text("立即购买")',
-            'button:has-text("马上抢购")',
             'a:has-text("立即购买")',
-            'a:has-text("马上抢购")',
             '#J_buy_btn',
             '.buy-btn',
         ],

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class AliyunLoginHandler(BaseLoginHandler):
-    login_url = "https://login.aliyun.com/"
+    login_url = "https://www.aliyun.com/benefit/scene/codingplan"
     verify_url = "https://account.aliyun.com/"
     platform_name = "aliyun"
 

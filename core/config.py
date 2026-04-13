@@ -23,7 +23,7 @@ class BrowserConfig(BaseModel):
 class AliyunConfig(BaseModel):
     enabled: bool = True
     purchase_time: str = "09:30:00"
-    url: str = "https://common-buy.aliyun.com/coding-plan"
+    url: str = "https://www.aliyun.com/benefit/scene/codingplan"
     max_retries: int = Field(default=5, ge=1, le=20)
     retry_delay_seconds: float = Field(default=1.0, ge=0.1, le=10.0)
     payment_timeout: int = Field(default=120, ge=30, le=600)
