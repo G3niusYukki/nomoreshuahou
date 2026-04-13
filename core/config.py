@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import os
 from pathlib import Path
-from typing import List, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -48,7 +45,7 @@ class GLMConfig(BaseModel):
     url: str = "https://www.bigmodel.cn/glm-coding"
     max_retries: int = Field(default=5, ge=1, le=20)
     retry_delay_seconds: float = Field(default=1.0, ge=0.1, le=10.0)
-    priority: List[str] = Field(default=["Pro", "Lite", "Max"])
+    priority: list[str] = Field(default=["Pro", "Lite", "Max"])
 
     @field_validator("purchase_time")
     @classmethod
@@ -63,7 +60,7 @@ class GLMConfig(BaseModel):
 
     @field_validator("priority")
     @classmethod
-    def validate_priority(cls, v: List[str]) -> List[str]:
+    def validate_priority(cls, v: list[str]) -> list[str]:
         valid = {"Pro", "Lite", "Max"}
         for tier in v:
             if tier not in valid:
@@ -73,7 +70,7 @@ class GLMConfig(BaseModel):
 
 class NotificationConfig(BaseModel):
     sound_enabled: bool = True
-    sound_file: Optional[str] = None
+    sound_file: str | None = None
     desktop_enabled: bool = True
     log_file: str = "logs/snap_buy.log"
 
@@ -95,7 +92,7 @@ class AppConfig(BaseModel):
     notification: NotificationConfig = NotificationConfig()
 
 
-def load_config(path: Optional[Path] = None) -> AppConfig:
+def load_config(path: Path | None = None) -> AppConfig:
     config_path = path or DEFAULT_CONFIG_PATH
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -106,7 +103,7 @@ def load_config(path: Optional[Path] = None) -> AppConfig:
     return AppConfig(**raw)
 
 
-def generate_example_config(path: Optional[Path] = None) -> Path:
+def generate_example_config(path: Path | None = None) -> Path:
     config_path = path or PROJECT_ROOT / "config.example.yaml"
     example = AppConfig().model_dump()
     config_path.parent.mkdir(parents=True, exist_ok=True)

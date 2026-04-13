@@ -1,11 +1,10 @@
 scheduler:
   timezone: Asia/Shanghai
   pre_warm_seconds: 30
-
 platforms:
   aliyun:
     enabled: true
-    purchase_time: '09:30:00'
+    purchase_time: 09:30:00
     url: https://common-buy.aliyun.com/coding-plan
     max_retries: 5
     retry_delay_seconds: 1.0
@@ -19,13 +18,11 @@ platforms:
     - Pro
     - Lite
     - Max
-
 browser:
   headless: false
   slow_mo: 50
   viewport_width: 1920
   viewport_height: 1080
-
 notification:
   sound_enabled: true
   sound_file: null

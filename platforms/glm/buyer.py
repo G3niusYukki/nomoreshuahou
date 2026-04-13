@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import asyncio
 import logging
-from typing import List, Optional
 
 from playwright.async_api import Page
 
@@ -62,7 +59,7 @@ class GLMBuyer(BaseBuyer):
         config: GLMConfig,
         browser_manager: BrowserManager,
         notifier: Notifier,
-        retry_config: Optional[RetryConfig] = None,
+        retry_config: RetryConfig | None = None,
     ):
         super().__init__(browser_manager, notifier, retry_config)
         self.config = config

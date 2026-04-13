@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Coroutine, Optional, Tuple, Type
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class RetryConfig:
     max_retries: int = 5
     base_delay: float = 1.0
     max_delay: float = 30.0
-    retryable_exceptions: Tuple[Type[Exception], ...] = (
+    retryable_exceptions: tuple[type[Exception], ...] = (
         TimeoutError,
         ConnectionError,
         OSError,
@@ -30,7 +29,7 @@ class RetryConfig:
 class RetryResult:
     success: bool
     attempts: int
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
 
 
 def classify_error(error: Exception) -> ErrorCategory:
@@ -49,7 +48,7 @@ async def retry_async(
     **kwargs,
 ) -> RetryResult:
     cfg = config or RetryConfig()
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
 
     for attempt in range(1, cfg.max_retries + 1):
         try:

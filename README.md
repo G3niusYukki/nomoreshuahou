@@ -14,7 +14,7 @@
 
 ## 系统要求
 
-- Python 3.9+
+- Python 3.14+
 - Windows/macOS/Linux
 - 网络连接
 

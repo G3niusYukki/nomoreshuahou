@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from pytz import timezone as pytz_tz
 
 from core.config import AppConfig
 
@@ -16,7 +14,7 @@ logger = logging.getLogger(__name__)
 class PurchaseScheduler:
     def __init__(self, config: AppConfig):
         self.config = config
-        self.tz = pytz_tz(config.scheduler.timezone)
+        self.tz = ZoneInfo(config.scheduler.timezone)
         self._scheduler = AsyncIOScheduler(timezone=self.tz)
 
     def _parse_purchase_time(self, time_str: str) -> tuple[int, int, int]:

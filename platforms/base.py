@@ -1,12 +1,9 @@
-from __future__ import annotations
-
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from playwright.async_api import BrowserContext, Page
 
@@ -29,7 +26,7 @@ class PurchaseResult:
     platform: str
     tier: str = ""
     message: str = ""
-    error: Optional[Exception] = None
+    error: Exception | None = None
 
 
 class BaseBuyer(ABC):
@@ -40,13 +37,13 @@ class BaseBuyer(ABC):
         self,
         browser_manager: BrowserManager,
         notifier: Notifier,
-        retry_config: Optional[RetryConfig] = None,
+        retry_config: RetryConfig | None = None,
     ):
         self.browser_manager = browser_manager
         self.notifier = notifier
         self.retry_config = retry_config or RetryConfig()
-        self._context: Optional[BrowserContext] = None
-        self._page: Optional[Page] = None
+        self._context: BrowserContext | None = None
+        self._page: Page | None = None
 
     @abstractmethod
     async def check_login(self, page: Page) -> bool:
@@ -69,7 +66,7 @@ class BaseBuyer(ABC):
         logger.info(f"[{self.platform_name}] Pre-warmed, current URL: {self._page.url}")
         return self._context
 
-    async def run(self, context: Optional[BrowserContext] = None) -> PurchaseResult:
+    async def run(self, context: BrowserContext | None = None) -> PurchaseResult:
         if context:
             self._context = context
         if not self._context:

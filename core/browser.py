@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
@@ -18,7 +15,7 @@ class BrowserManager:
     def __init__(self, config: BrowserConfig):
         self.config = config
         self._playwright = None
-        self._browser: Optional[Browser] = None
+        self._browser: Browser | None = None
 
     async def launch(self) -> Browser:
         self._playwright = await async_playwright().start()
@@ -30,7 +27,7 @@ class BrowserManager:
 
     async def create_context(
         self,
-        storage_state_path: Optional[Path] = None,
+        storage_state_path: Path | None = None,
     ) -> BrowserContext:
         if self._browser is None:
             await self.launch()
