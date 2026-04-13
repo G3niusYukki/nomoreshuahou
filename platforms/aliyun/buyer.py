@@ -16,31 +16,38 @@ class AliyunBuyer(BaseBuyer):
     platform_name = "aliyun"
     purchase_url = "https://www.aliyun.com/benefit/scene/codingplan"
 
-    # Selectors - may need updating if the page changes
-    SELECTORS = {
-        "purchase_button": [
-            'button:has-text("立即订阅")',
-            'a:has-text("立即订阅")',
-            'button:has-text("立即购买")',
-            'a:has-text("立即购买")',
-            '#J_buy_btn',
-            '.buy-btn',
-        ],
-        "sold_out_indicator": [
-            ':has-text("已售罄")',
-            ':has-text("暂不可购买")',
-            ':has-text("已售完")',
-        ],
-        "success_indicator": [
-            ':has-text("订单创建成功")',
-            ':has-text("支付成功")',
-            ':has-text("开通成功")',
-        ],
-        "confirm_button": [
-            'button:has-text("确认")',
-            'button:has-text("提交订单")',
-        ],
-    }
+    # Landing page: entry button to subscription page
+    ENTRY_SELECTORS = [
+        'a:has-text("马上抢购")',
+        'button:has-text("马上抢购")',
+    ]
+
+    # Subscription page: actual purchase button
+    SUBSCRIBE_SELECTORS = [
+        'button:has-text("订阅")',
+        'button:has-text("立即订阅")',
+        'button:has-text("立即购买")',
+        '#J_buy_btn',
+        '.buy-btn',
+    ]
+
+    SOLD_OUT_SELECTORS = [
+        ':has-text("已售罄")',
+        ':has-text("暂不可购买")',
+        ':has-text("已售完")',
+        ':has-text("售罄")',
+    ]
+
+    SUCCESS_SELECTORS = [
+        ':has-text("订单创建成功")',
+        ':has-text("支付成功")',
+        ':has-text("开通成功")',
+    ]
+
+    CONFIRM_SELECTORS = [
+        'button:has-text("确认")',
+        'button:has-text("提交订单")',
+    ]
 
     def __init__(
         self,
@@ -61,86 +68,139 @@ class AliyunBuyer(BaseBuyer):
         return True
 
     async def is_available(self, page: Page) -> bool:
-        # Check for "sold out" indicators
-        for selector in self.SELECTORS["sold_out_indicator"]:
+        for selector in self.SOLD_OUT_SELECTORS:
             element = await page.query_selector(selector)
             if element and await element.is_visible():
                 return False
-
-        # Check if purchase button exists and is enabled
-        for selector in self.SELECTORS["purchase_button"]:
+        for selector in self.ENTRY_SELECTORS:
             element = await page.query_selector(selector)
             if element and await element.is_visible():
-                is_disabled = await element.get_attribute("disabled")
-                if not is_disabled:
-                    return True
+                return True
         return False
 
     async def execute_purchase(self, page: Page) -> PurchaseResult:
-        # Ensure we're on the purchase page
+        context = page.context
+
+        # Clean up extra tabs from previous attempts
+        if len(context.pages) > 1:
+            for extra_page in context.pages[1:]:
+                try:
+                    await extra_page.close()
+                except Exception:
+                    pass
+
+        # Step 1: Navigate to landing page
         if self.purchase_url not in page.url:
             await page.goto(self.purchase_url, wait_until="domcontentloaded")
             await page.wait_for_load_state("networkidle", timeout=15000)
 
-        # Wait for availability
-        available = await self.is_available(page)
-        if not available:
-            return PurchaseResult(
-                status=PurchaseStatus.SOLD_OUT,
-                platform=self.platform_name,
-                message="Product not available or sold out",
-            )
+        # Step 2: Click "马上抢购" entry button (may open new tab)
+        pages_before = set(context.pages)
 
-        # Click the purchase button
-        clicked = False
-        for selector in self.SELECTORS["purchase_button"]:
+        clicked_entry = False
+        for selector in self.ENTRY_SELECTORS:
             element = await page.query_selector(selector)
             if element and await element.is_visible():
                 await element.click()
-                clicked = True
-                logger.info(f"Clicked purchase button: {selector}")
+                clicked_entry = True
+                logger.info(f"Clicked entry button: {selector}")
                 break
 
-        if not clicked:
+        if not clicked_entry:
             return PurchaseResult(
                 status=PurchaseStatus.ERROR,
                 platform=self.platform_name,
-                message="Could not find purchase button",
+                message="Could not find entry button (马上抢购)",
             )
 
-        # Wait for potential confirmation dialog
-        await page.wait_for_load_state("networkidle", timeout=10000)
+        # Step 3: Detect new tab or same-page navigation
         await asyncio.sleep(1)
+        new_pages = [p for p in context.pages if p not in pages_before]
 
-        # Check for confirmation button
-        for selector in self.SELECTORS["confirm_button"]:
+        if new_pages:
+            target_page = new_pages[0]
+            await target_page.bring_to_front()
+            page = target_page
+            logger.info(f"New tab opened, switched to: {page.url}")
+        else:
+            logger.info(f"Same-page navigation, URL: {page.url}")
+
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+        except Exception:
+            logger.warning("[aliyun] domcontentloaded timeout, proceeding anyway")
+        logger.info(f"Subscription page loaded: {page.url}")
+
+        # Step 4: Check sold out BEFORE clicking subscribe
+        for selector in self.SOLD_OUT_SELECTORS:
+            element = await page.query_selector(selector)
+            if element and await element.is_visible():
+                logger.info("[aliyun] Sold out detected on subscription page")
+                return PurchaseResult(
+                    status=PurchaseStatus.SOLD_OUT,
+                    platform=self.platform_name,
+                    message="Product sold out",
+                )
+
+        # Step 5: Click "订阅" button (only buttons, not nav links)
+        clicked_subscribe = False
+        for selector in self.SUBSCRIBE_SELECTORS:
+            element = await page.query_selector(selector)
+            if element and await element.is_visible():
+                is_disabled = await element.get_attribute("disabled")
+                if is_disabled:
+                    logger.warning(f"[aliyun] Subscribe button disabled: {selector}")
+                    continue
+                await element.click()
+                clicked_subscribe = True
+                logger.info(f"Clicked subscribe button: {selector}")
+                break
+
+        if not clicked_subscribe:
+            return PurchaseResult(
+                status=PurchaseStatus.SOLD_OUT,
+                platform=self.platform_name,
+                message="Subscribe button not found or disabled",
+            )
+
+        # Wait for page transition
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+
+        # Step 6: Check for confirmation dialog
+        for selector in self.CONFIRM_SELECTORS:
             element = await page.query_selector(selector)
             if element and await element.is_visible():
                 await element.click()
                 logger.info(f"Clicked confirm button: {selector}")
                 break
 
-        # Wait for page transition after confirmation
-        await page.wait_for_load_state("networkidle", timeout=15000)
-        await asyncio.sleep(1)
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
 
-        # Check for immediate success (no payment needed)
-        for selector in self.SELECTORS["success_indicator"]:
+        # Step 7: Check for immediate success
+        for selector in self.SUCCESS_SELECTORS:
             element = await page.query_selector(selector)
             if element:
                 return PurchaseResult(
                     status=PurchaseStatus.SUCCESS,
                     platform=self.platform_name,
-                    message="Purchase completed successfully (no payment needed)",
+                    message="Purchase completed successfully",
                 )
 
-        # If redirected to payment page, wait for manual payment
+        # Step 8: If on payment page, wait for manual payment
         current_url = page.url.lower()
         if any(kw in current_url for kw in ("pay", "order", "cashier")):
             return await self._wait_for_payment(
                 page,
                 timeout=self.config.payment_timeout,
-                success_indicators=self.SELECTORS["success_indicator"],
+                success_indicators=self.SUCCESS_SELECTORS,
             )
 
         return PurchaseResult(

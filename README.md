@@ -4,25 +4,28 @@
 
 ## 功能特点
 
-- 🚀 **双平台支持**：同时支持阿里云百炼和GLM两个平台
-- ⏰ **精准定时**：秒级精度的定时触发，确保在补货瞬间抢购
-- 🔄 **智能重试**：指数退避重试机制，自动处理网络波动
-- 🛡️ **反检测**：内置反爬虫措施，模拟真实用户行为
-- 📱 **即时通知**：抢购成功/失败即时通知（桌面+声音）
-- 🔐 **会话保持**：登录状态持久化，避免重复扫码
-- ⚙️ **灵活配置**：YAML配置文件，支持自定义套餐优先级
+- **双平台支持**：同时支持阿里云百炼和 GLM 两个平台
+- **精准定时**：秒级精度的定时触发，提前预热浏览器，确保在补货瞬间抢购
+- **智能重试**：指数退避重试机制，自动处理网络波动
+- **反检测**：playwright-stealth 反爬虫，隐藏自动化特征
+- **即时通知**：抢购成功/失败即时通知（桌面 + 声音）
+- **会话保持**：登录状态持久化，避免重复扫码
+- **手动支付**：抢到后暂停等待扫码/密码支付，不自动扣费
+- **代理支持**：支持配置 HTTP 代理，适应不同网络环境
+- **立即模式**：`--now` 跳过调度，立即执行一次抢购（调试用）
 
 ## 系统要求
 
-- Python 3.14+
-- Windows/macOS/Linux
+- Python 3.11+
+- Windows / macOS / Linux
 - 网络连接
 
 ## 安装步骤
 
-### 1. 克隆或下载项目
+### 1. 克隆项目
 
 ```bash
+git clone https://github.com/G3niusYukki/nomoreshuahou.git
 cd snap-buy
 ```
 
@@ -42,11 +45,6 @@ source venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 4. 安装 Playwright 浏览器
-
-```bash
 playwright install chromium
 ```
 
@@ -56,49 +54,47 @@ playwright install chromium
 
 ```bash
 python main.py generate-config
-```
-
-### 2. 复制并编辑配置
-
-```bash
 cp config.example.yaml config.yaml
 ```
 
-### 3. 编辑 config.yaml
+### 2. 编辑 config.yaml
 
 ```yaml
 scheduler:
   timezone: Asia/Shanghai
-  pre_warm_seconds: 30  # 提前30秒预热浏览器
+  pre_warm_seconds: 30
 
 platforms:
   aliyun:
     enabled: true
-    purchase_time: '09:30:00'  # 阿里云每天9:30补货
-    url: https://common-buy.aliyun.com/coding-plan
+    purchase_time: '09:30:00'
+    url: https://www.aliyun.com/benefit/scene/codingplan
     max_retries: 5
     retry_delay_seconds: 1.0
-    
+    payment_timeout: 120    # 支付等待超时（秒）
+
   glm:
     enabled: true
-    purchase_time: '10:00:00'  # GLM每天10:00补货
+    purchase_time: '10:00:00'
     url: https://www.bigmodel.cn/glm-coding
     max_retries: 5
     retry_delay_seconds: 1.0
-    priority:  # 套餐优先级，按顺序尝试
+    payment_timeout: 120
+    priority:               # 套餐优先级
       - Pro
       - Lite
       - Max
 
 browser:
-  headless: false  # 建议false，便于观察和扫码登录
-  slow_mo: 50      # 操作间隔(毫秒)，模拟人类速度
+  headless: false           # 建议关闭，便于观察
+  slow_mo: 50
   viewport_width: 1920
   viewport_height: 1080
+  proxy: null               # 例: http://127.0.0.1:7897
 
 notification:
   sound_enabled: true
-  sound_file: null  # 可指定WAV文件路径
+  sound_file: null
   desktop_enabled: true
   log_file: logs/snap_buy.log
 ```
@@ -110,153 +106,89 @@ notification:
 首次使用需要手动登录，保存会话状态：
 
 ```bash
-# 登录阿里云
 python main.py login aliyun
-
-# 登录GLM
 python main.py login glm
 ```
 
-程序会打开浏览器，你需要手动完成登录（扫码或输入账号密码），然后在终端按 Enter 确认。
+程序会打开浏览器，手动完成登录后在终端按 Enter 确认。会话保存在 `auth/` 目录。
 
-### 2. 验证配置
+### 2. 立即测试
 
 ```bash
-python main.py test-config
+# 跳过调度，立即执行一次购买流程
+python main.py run --now
 ```
 
-### 3. 查看平台状态
+### 3. 定时运行
 
 ```bash
-python main.py list-platforms
-```
-
-### 4. 运行抢购
-
-```bash
+# 按配置的时间自动调度
 python main.py run
 ```
 
-程序会：
-1. 根据配置的时间自动调度抢购任务
-2. 提前30秒预热浏览器并打开购买页面
-3. 在补货时间点精准触发购买
-4. 自动重试直到成功或达到最大次数
-5. 抢购成功后发送桌面通知和声音提示
+### 其他命令
 
-## 工作原理
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Snap Buy 主程序                        │
-├─────────────────────────────────────────────────────────┤
-│              APScheduler 定时调度器                        │
-│         (每天 9:30 阿里云, 10:00 GLM)                     │
-├─────────────────┬───────────────────────────────────────┤
-│                 │                                        │
-│  ┌──────────────▼──────────────┐                        │
-│  │      浏览器预热模块          │                        │
-│  │  (提前30秒打开购买页面)      │                        │
-│  └──────────────┬──────────────┘                        │
-│                 │                                        │
-│  ┌──────────────▼──────────────┐                        │
-│  │      精准定时触发            │                        │
-│  │  (毫秒级时间对齐)           │                        │
-│  └──────────────┬──────────────┘                        │
-│                 │                                        │
-│  ┌──────────────▼──────────────┐                        │
-│  │      自动购买流程            │                        │
-│  │  - 检测可用性               │                        │
-│  │  - 点击购买按钮             │                        │
-│  │  - 确认订单                 │                        │
-│  └──────────────┬──────────────┘                        │
-│                 │                                        │
-│  ┌──────────────▼──────────────┐                        │
-│  │      通知模块                │                        │
-│  │  - 桌面通知                 │                        │
-│  │  - 声音提示                 │                        │
-│  │  - 日志记录                 │                        │
-│  └─────────────────────────────┘                        │
-└─────────────────────────────────────────────────────────┘
+```bash
+python main.py test-config      # 验证配置文件
+python main.py list-platforms   # 查看平台状态
+python main.py generate-config  # 生成示例配置
 ```
 
-## 常见问题
+## 购买流程
 
-### Q: 为什么选择 Playwright 而不是 Selenium？
+### 阿里云百炼
 
-A: Playwright 相比 Selenium 有以下优势：
-- 更快的执行速度
-- 自动等待元素，无需手动 sleep
-- 更好的反检测能力
-- 更现代的 API 设计
+1. 打开购买页面 `https://www.aliyun.com/benefit/scene/codingplan`
+2. 点击「马上抢购」→ 跳转到订阅页面
+3. 检测售罄状态，若有库存则点击「订阅」
+4. 确认订单 → 等待手动支付 → 桌面通知提醒
 
-### Q: 登录状态能保持多久？
+### GLM
 
-A: 登录状态会保存在 `auth/` 目录下，通常可以保持数天到数周。如果过期，程序会提示你重新登录。
-
-### Q: 可以只抢一个平台吗？
-
-A: 可以，在 config.yaml 中将不需要的平台设置为 `enabled: false`。
-
-### Q: GLM的套餐优先级是什么意思？
-
-A: 如果你设置了 `priority: [Pro, Lite, Max]`，程序会按顺序尝试：
-1. 先尝试购买 Pro 套餐
-2. 如果 Pro 售罄，尝试 Lite
-3. 如果 Lite 也售罄，尝试 Max
-
-### Q: 抢购失败怎么办？
-
-A: 程序会自动重试（默认5次），并记录日志到 `logs/snap_buy.log`。你也可以查看 `logs/screenshots/` 目录下的截图来诊断问题。
-
-### Q: 会违反平台规定吗？
-
-A: 本工具仅用于自动化浏览器操作，模拟手动抢购过程。请注意：
-- 仅用于个人订阅抢购
-- 不要用于批量抢购或商业用途
-- 遵守平台的服务条款
+1. 打开 `https://www.bigmodel.cn/glm-coding`
+2. 按优先级选择套餐（Pro → Lite → Max）
+3. 检测每个套餐的库存状态
+4. 有库存则点击购买按钮 → 等待支付
 
 ## 目录结构
 
 ```
 snap-buy/
-├── main.py              # CLI入口
-├── config.example.yaml  # 示例配置
-├── requirements.txt     # 依赖列表
-├── core/               # 核心模块
-│   ├── browser.py      # 浏览器管理
-│   ├── config.py       # 配置加载
-│   ├── notifier.py     # 通知系统
-│   ├── retry.py        # 重试机制
-│   └── scheduler.py    # 定时调度
-├── platforms/          # 平台实现
-│   ├── base.py         # 基类
-│   ├── aliyun/         # 阿里云
-│   │   ├── buyer.py    # 购买流程
-│   │   └── login.py    # 登录处理
-│   └── glm/            # GLM
-│       ├── buyer.py    # 购买流程
-│       └── login.py    # 登录处理
-├── auth/               # 会话状态（gitignore）
-├── logs/               # 日志文件（gitignore）
-└── tests/              # 测试文件
+├── main.py                # CLI 入口（Click）
+├── config.example.yaml    # 示例配置
+├── requirements.txt       # 依赖列表
+├── core/                  # 核心模块
+│   ├── browser.py         # 浏览器管理 + stealth 注入
+│   ├── config.py          # Pydantic 配置模型
+│   ├── notifier.py        # 桌面通知 + 声音
+│   ├── retry.py           # 指数退避重试
+│   └── scheduler.py       # APScheduler 定时调度
+├── platforms/             # 平台实现
+│   ├── base.py            # BaseBuyer 基类
+│   ├── base_login.py      # BaseLoginHandler 基类
+│   ├── aliyun/
+│   │   ├── buyer.py       # 阿里云购买流程
+│   │   └── login.py       # 阿里云登录
+│   └── glm/
+│       ├── buyer.py       # GLM 购买流程
+│       └── login.py       # GLM 登录
+├── auth/                  # 会话状态（gitignore）
+└── logs/                  # 日志和截图（gitignore）
 ```
 
-## 开发说明
+## 常见问题
 
-### 运行测试
+**Q: 登录状态能保持多久？**
+会话保存在 `auth/*.json`，通常可保持数天到数周。过期后程序会提示重新登录。
 
-```bash
-pytest tests/
-```
+**Q: 可以只抢一个平台吗？**
+在 config.yaml 中将不需要的平台设为 `enabled: false`。
 
-### 代码风格
+**Q: 如何调试？**
+使用 `python main.py run --now` 立即执行一次，观察浏览器行为。日志在 `logs/snap_buy.log`，错误截图在 `logs/screenshots/`。
 
-项目使用 Python 类型提示和现代化的异步编程模式。
-
-## 许可证
-
-MIT License
+**Q: 需要代理吗？**
+如果网络受限，在 config.yaml 中设置 `browser.proxy: http://127.0.0.1:端口`。
 
 ## 免责声明
 
